@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        body{
+            font-family: sans-serif;
+            padding: 40px;
+            background-color: #f4f4f9;
+        }
+        .container{
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        table{
+            width:100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th,td{
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        th{
+            background-color: #007bff;
+            color:white;
+        }
+        input[type="checkbox"]{
+            transform: scale(1.5);
+            cursor:pointer;
+        }
+        input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>User Permissions Management</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Read</th>
+                    <th>Write</th>
+                    <th>Read/Write</th>
+                </tr>
+            </thead>
+            <tbody id="userTableBody">
+                <tr><td colspan ="5">Loading users...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadUsers() {
+            try{
+                const response = await fetch('http://localhost:3000/api/users');
+                const users = await response.json();
+                const tableBody = document.getElementById('userTableBody');
+                tableBody.innerHTML = '';
+
+                users.forEach(user => {
+                    const row = document.createElement('tr');
+
+                    row.innerHTML= `
+                        <td><strong>${user.username}</strong></td>
+                        <td>${user.role}</td>
+                        <td><input type="checkbox" data-id="${user._id}" data-prem="read" ${user.permissions.read ? 'checked' : ''} ${user.username === 'user3' ? 'disabled' : ''}></td>
+                        <td><input type="checkbox" data-id="${user._id}" data-prem="write" ${user.permissions.write ? 'checked': ''} ${user.username === 'user3' ? 'disabled' : ''}></td>
+                        <td><input type="checkbox" data-id="${user._id}" data-prem="readWrite" ${user.permissions.readWrite ? 'checked' : ''} ${user.username === 'user3' ? 'disabled' : ''}></td>
+
+                    `;
+                    tableBody.appendChild(row);
+                });
+                attachCheckboxListeners();
+            }catch(error){
+                console.error('Error fetching users: ', error);
+                document.getElementById('userTableBody').innerHTML = '<tr><td colspan ="5"> Error loading users. Is the server running?</td></tr>';
+            }
+        }
+        
+        function attachCheckboxListeners(){
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', async function(){
+                    const userId = this.getAttribute('data-id');
+                    const permissionName = this.getAttribute('data-prem');
+                    const isChecked = this.checked;
+
+                    try{
+                        const response = await fetch(`http://localhost:3000/api/users/${userId}/permissions`,{
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                permissionName: permissionName,
+                                isChecked: isChecked
+                            })
+                        });
+                        const data = await response.json();
+                        if(data.success){
+                            console.log(`Success: Updated ${permissionName} to ${isChecked} for user ${userId}`);
+                        }else{
+                            alert('Backend failed to update database.');
+                            this.checked =!isChecked;
+                        }
+                    }catch(error){
+                        console.log('network Error:', error);
+                        alert('Could not connect to the server.');
+                        this.checked =!isChecked;
+                    }
+                });
+            });
+        }
+        loadUsers();
+    </script>
+</body>
+</html>
